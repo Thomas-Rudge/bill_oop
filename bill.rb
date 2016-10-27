@@ -42,7 +42,6 @@ class EOS
     end
   end
   
-  private :submit
   attr_reader :bill_list, :ref, :system_total, :ccy
 end
 
@@ -78,13 +77,13 @@ class Bill
   ## Calculates the subtotal based on the content of @items
   def retotal
     @subtotal -= @subtotal
+    @tax -= @tax
     @items.each do |key, item|
       qty, item = item[1], item[0]
       price = item.price
       tax = item.tax / 100.00
       dsc_quantity = 0
       dsc_amount = Money.new(0, @eos.ccy)
-      new_total = Money.new(0, @eos.ccy)
       puts "Price #{price}", "Qty #{qty}", "Tax #{tax}"
       # Remove VAT from price if present
       if item.price_include_vat
@@ -95,10 +94,10 @@ class Bill
       if item.discount && item.discount[0] >= qty
       end
       # Total up price * quantity
-      tax = price * tax
+      tax = (price * tax) * qty
       @tax += tax
       puts "New tax #{@tax}"
-      @subtotal += (price * qty + tax)
+      @subtotal += price * qty + tax
     end
   end
   
