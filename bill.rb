@@ -1,12 +1,16 @@
 require 'money' # Yes please
 
-## This is the main class from which other classes will be called and new objects created
-class EOS
-  ## ccy must be ISO compatible currency (USD, GBP, NOK, etc)
-  ## ref_start is a counter whose value is assigned to bills as a unique session reference
-  ##
-  ## enforce_locales should be set to false if the money 
-  ## gem complains that your locale is not valid
+## POS
+# A self contained point of sale object. From the POS object you can create sales items 
+# and bills. Bills can then be submitted back to the POS object and recorded as sales
+#   ccy             - The currency of the POS instance.
+#   enforce_locales - Stops I18n locale not valid errors.
+#   ref_start       - Where unique bill refs should start from.
+#                     ## NB: The first bill will be assigned ref_start+1
+#   bill_list       - A hash of bills submitted to the POS
+#                     ## NB: Format {bill_ref: bill_object}
+#   system_total    - The gross amount of cash in the POS (sum of all submitted bills)
+class POS
   def initialize(ccy='gbp', enforce_locales:false, ref_start:0)
     @ccy = ccy.downcase! || ccy
     @ref = ref_start
@@ -45,13 +49,23 @@ class EOS
   attr_reader :bill_list, :ref, :system_total, :ccy
 end
 
+## BILL
+# Bills are created through the pos object. Items can be added 
+# to the bill, and the bill can be submitted to the pos object.
+#   pos       - The POS object that spawned the bill
+#   bill_ref  - A unique bill ID issued by the POS object
+#   subtotal  - Keeps track of the bill's gross value
+#   tax       - Keeps track of sales tax for the bill
+#   items     - A hash of item objects applied to the bill, and their quantities
+#               ## NB: Format {item_name :[item_object, quantity]}
+#   submitted - A flag denoting whether the bill has been passed back to the POS object
 class Bill
-  ## eos is the parent system
+  ## pos is the parent system
   ## bill_ref is a system unique id
-  def initialize(eos, bill_ref)
-    @eos = eos
-    @subtotal = Money.new(0, eos.ccy)
-    @tax = Money.new(0, eos.ccy)
+  def initialize(pos, bill_ref)
+    @pos = pos
+    @subtotal = Money.new(0, pos.ccy)
+    @tax = Money.new(0, pos.ccy)
     @bill_ref = bill_ref
     # items format {name: [item, quantity]}
     @items = {}
@@ -60,6 +74,9 @@ class Bill
   ## Adds an item to the bill.
   ## If already present increments quantity by 1
   def add_item(item, qty:1)
+    # Clone the item so that if the base item changes later, it doesn't  imbalance 
+    # the entire system (i.e. price changes wont effect bills already submitted)
+    item = item.clone
     qty.times do
       if @items.keys.include? item.name
         @items[item.name][1] += 1
@@ -72,39 +89,40 @@ class Bill
   ## Clears the content of the bill
   def reset
     @items.clear
-    @subtotal -= @subtotal
+    retotal()
   end
   ## Calculates the subtotal based on the content of @items
   def retotal
+    # Reset totals
     @subtotal -= @subtotal
     @tax -= @tax
+    # Iterate over the bills items, and process each one
     @items.each do |key, item|
       qty, item = item[1], item[0]
       price = item.price
       tax = item.tax / 100.00
       dsc_quantity = 0
-      dsc_amount = Money.new(0, @eos.ccy)
-      puts "Price #{price}", "Qty #{qty}", "Tax #{tax}"
-      # Remove VAT from price if present
+      dsc_amount = Money.new(0, @pos.ccy)
+      # If price contains vat, remove the vat
       if item.price_include_vat
         price = price / (1 + tax)
-        puts "Repriced #{price}"
       end
       # Check if a discount is to be applied
       if item.discount && item.discount[0] >= qty
+        # TO DO
       end
       # Total up price * quantity
       tax = (price * tax) * qty
       @tax += tax
-      puts "New tax #{@tax}"
       @subtotal += price * qty + tax
     end
   end
   
+  ## This submits the bill to the POS object, and closes the bill
   def submit
     unless @submitted
       retotal()
-      @eos.submit(self.clone)
+      @pos.submit(self.clone)
       @submitted = true
     else
       puts "This bill has already been submitted."
@@ -114,7 +132,9 @@ class Bill
   attr_reader :items, :bill_ref, :subtotal, :submitted, :tax
 end
 
-# ITEM for purchase through the EOS system
+## ITEM
+# Items are created through the POS object, and added to bill objects
+#   pos      - The POS object that spawned the item.
 #   name     - Must be a string
 #   price    - Must be a floatable value
 #   discount - Must be nil or an array with three integers
@@ -125,8 +145,8 @@ end
 #   tax      - Must be a decimal representing a percentage e.g. 17, 17%, 11.5,etc
 #   tags     - Must be a string or array of strings
 class Item
-  def initialize(eos, name, price, discount, tax, tags, price_include_vat)
-    @eos = eos
+  def initialize(pos, name, price, discount, tax, tags, price_include_vat)
+    @pos = pos
     @name = name
     @price = price
     @tax = tax
@@ -160,10 +180,13 @@ class Item
       # so we'll check price is valid using Float
       @price = @price.to_s.gsub!(',', '') || @price.to_s
       @tax = @tax.to_s.gsub!('%', '') || @tax.to_s
+      # This will trigger the excpetion case if the values aren't valid
       Float(@price); nil
       Float(@tax); nil
-      @price = @price.to_i * Money::Currency.table[@eos.ccy.to_sym][:subunit_to_unit]
-      @price = Money.new(@price, @eos.ccy)
+      # Money gem works in subunits, so change the price to pence
+      @price = @price.to_i * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]
+      # Now we'll turn the price into a money object, and tax into an integer
+      @price = Money.new(@price, @pos.ccy)
       @tax = @tax.to_i
     rescue
       raise Exception, "Bad value for price '#{@price}' or tax '#{@tax}'"
@@ -173,5 +196,3 @@ class Item
   private :validate, :tosymbol
   attr_accessor :name, :price, :discount, :tax, :tags, :price_include_vat
 end
-
-
