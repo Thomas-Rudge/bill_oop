@@ -66,8 +66,8 @@ class Bill
     @pos = pos
     @subtotal = Money.new(0, pos.ccy)
     @tax = Money.new(0, pos.ccy)
+    @discount = Money.new(0, pos.ccy)
     @bill_ref = bill_ref
-    # items format {name: [item, quantity]}
     @items = {}
     @submitted = false
   end
@@ -96,11 +96,13 @@ class Bill
     # Reset totals
     @subtotal -= @subtotal
     @tax -= @tax
+    @discount -= @discount
     # Iterate over the bills items, and process each one
     @items.each do |key, item|
       qty, item = item[1], item[0]
       price = item.price
       tax = item.tax / 100.00
+      # dsc_quantity x dsc_amount = total_discount
       dsc_quantity = 0
       dsc_amount = Money.new(0, @pos.ccy)
       # If price contains vat, remove the vat
@@ -108,14 +110,37 @@ class Bill
         price = price / (1 + tax)
       end
       # Check if a discount is to be applied
-      if item.discount && item.discount[0] >= qty
-        # TO DO
-      end
-      # Total up price * quantity
-      tax = (price * tax) * qty
+      dsc_amount, dsc_quantity = discounter(item.discount, qty, price)
+      # Total everything up
+      dscnt = dsc_amount * dsc_quantity
+      @discount += dscnt
+      #
+      price = (price * qty) - dscnt
+      tax = price * tax
+      #
       @tax += tax
-      @subtotal += price * qty + tax
+      @subtotal += price + tax
     end
+  end
+  
+  ## This calculates the discount values
+  def discounter(discount, quantity, i_price)
+    d_amount = Money.new(0, @pos.ccy)
+    d_qty = 0
+    # Discount is always applied before tax
+    if discount[2] == 0 && (discount[0] + discount[1]) <= quantity
+      # Quantity discount
+      # tot is the total items used in a single discount
+      tot = discount[0] + discount[1]
+      d_qty = (quantity / tot).floor
+      d_amount = i_price
+    elsif discount[0] <= quantity
+      # Money discount
+      d_qty = (quantity / discount[0]).floor
+      d_amount = discount[1] * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]
+      d_amount = Money.new(d_amount, @pos.ccy)
+    end
+    return d_amount, d_qty
   end
   
   ## This submits the bill to the POS object, and closes the bill
@@ -129,7 +154,8 @@ class Bill
     end
   end
   
-  attr_reader :items, :bill_ref, :subtotal, :submitted, :tax
+  private :discounter
+  attr_reader :items, :bill_ref, :subtotal, :submitted, :tax, :discount
 end
 
 ## ITEM
@@ -181,13 +207,12 @@ class Item
       @price = @price.to_s.gsub!(',', '') || @price.to_s
       @tax = @tax.to_s.gsub!('%', '') || @tax.to_s
       # This will trigger the excpetion case if the values aren't valid
-      Float(@price); nil
-      Float(@tax); nil
+      @price = Float(@price)
+      @tax = Float(@tax)
       # Money gem works in subunits, so change the price to pence
-      @price = @price.to_i * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]
+      @price = (@price * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]).to_i
       # Now we'll turn the price into a money object, and tax into an integer
       @price = Money.new(@price, @pos.ccy)
-      @tax = @tax.to_i
     rescue
       raise Exception, "Bad value for price '#{@price}' or tax '#{@tax}'"
     end
