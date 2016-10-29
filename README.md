@@ -4,7 +4,7 @@ A simple POS system written in the Ruby scripting language using OOP.
 
 ####Get the dependencies.
 
-```
+```shell
 ~$ gem install money
 ```
 &nbsp;
@@ -39,7 +39,7 @@ sys = POS.new('eur', enforce_locales:true, ref_start:50)
 
 ```
 The POS object's properties can be retrieved like this...
-```
+```ruby
 ## sub_total is the gross amount of cash in the system (aggregate of all submitted bills).
 # This returns a money object
 sys.system_total
@@ -88,7 +88,7 @@ Keyword arguments are as follows:
 |tags|Tags are non-functional, and are just present to help search and categorise items within the system.|[ ]|
 |price_include_vat|Set to `true` if the price passed to the item is inclusive of VAT, else false.|true|
 
-```
+```ruby
 # Create a new item object called spam
 spam = sys.new_item('Spam', 1.45, 
   discount:[1, 1, 0], 
@@ -119,7 +119,7 @@ spam.tags.push(:Pork)
 ####Bill Object
 A bill is created through the POS object using the `new_bill` method. Items are added to bills using the bill's `add_item` method.
 
-```
+```ruby
 bill = sys.new_bill
 => #<Bill:0x000000020b5b10 @pos=#<POS:0x000000021bdc10 @ccy="eur", @ref=50, @bill_list={}, 
 @system_total=#<Money fractional:0 currency:EUR>>, @subtotal=#<Money fractional:0 currency:EUR>, 
@@ -160,7 +160,7 @@ bill.reset
 
 Submitting a bill object to the POS
 
-```
+```ruby
 # Lets add something to the bill (since we just reset it).
 bill.add_item(spam, qty:5)
 
