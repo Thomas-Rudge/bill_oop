@@ -150,8 +150,8 @@ class Bill
   def submit
     unless @submitted
       retotal()
-      @pos.submit(self.clone)
       @submitted = true
+      @pos.submit(self.clone)
     else
       puts "This bill has already been submitted."
     end
