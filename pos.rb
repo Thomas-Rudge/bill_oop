@@ -11,9 +11,9 @@ require 'money' # Yes please
 #                     ## NB: Format {bill_ref: bill_object}
 #   system_total    - The gross amount of cash in the POS (sum of all submitted bills)
 class POS
-  def initialize(ccy='gbp', enforce_locales:false, ref_start:0)
+  def initialize(ccy='gbp', enforce_locales:false, ref_start:1)
     @ccy = ccy.downcase! || ccy
-    @ref = ref_start
+    @ref = ref_start-1
     I18n.enforce_available_locales = enforce_locales
     @bill_list = {}
     @system_total = Money.new(0, @ccy)
@@ -76,20 +76,22 @@ class Bill
   def add_item(item, qty:1)
     # Clone the item so that if the base item changes later, it doesn't  imbalance 
     # the entire system (i.e. price changes wont effect bills already submitted)
-    item = item.clone
-    qty.times do
-      if @items.keys.include? item.name
-        @items[item.name][1] += 1
-      else
-        @items[item.name] = [item, 1]
+    unless @submitted
+      item = item.clone
+      qty.times do
+        if @items.keys.include? item.name
+          @items[item.name][1] += 1
+        else
+          @items[item.name] = [item, 1]
+        end
       end
-    end
-    retotal()
+      retotal()
   end
   ## Clears the content of the bill
   def reset
-    @items.clear
-    retotal()
+    unless submitted
+      @items.clear
+      retotal()
   end
   ## Calculates the subtotal based on the content of @items
   def retotal
@@ -125,10 +127,11 @@ class Bill
   
   ## This calculates the discount values
   def discounter(discount, quantity, i_price)
-    d_amount = Money.new(0, @pos.ccy)
-    d_qty = 0
     # Discount is always applied before tax
-    if discount[2] == 0 && (discount[0] + discount[1]) <= quantity
+    if !discount
+      d_amount = Money.new(0, @pos.ccy)
+      d_qty = 0
+    elsif discount[2] == 0 && (discount[0] + discount[1]) <= quantity
       # Quantity discount
       # tot is the total items used in a single discount
       tot = discount[0] + discount[1]
@@ -163,10 +166,10 @@ end
 #   pos      - The POS object that spawned the item.
 #   name     - Must be a string
 #   price    - Must be a floatable value
-#   discount - Must be nil or an array with three integers
-#                - The first integer  (x) is the quantity required to trigger the discount
-#                - The second integer (y) is the discount to be applied
-#                - The third integer is either - 0 - Buy x get y free (y is a quantity)
+#   discount - Must be nil or an array with three values
+#                - The first value  (x) is the quantity required to trigger the discount
+#                - The second value (y) is the discount to be applied
+#                - The third value is either - 0 - Buy x get y free (y is a quantity)
 #                                              - 1 - Buy x get y off  (y is an amount in pence)
 #   tax      - Must be a decimal representing a percentage e.g. 17, 17%, 11.5,etc
 #   tags     - Must be a string or array of strings
