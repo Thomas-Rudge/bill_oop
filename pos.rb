@@ -86,12 +86,14 @@ class Bill
         end
       end
       retotal()
+    end
   end
   ## Clears the content of the bill
   def reset
     unless submitted
       @items.clear
       retotal()
+    end
   end
   ## Calculates the subtotal based on the content of @items
   def retotal
