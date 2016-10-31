@@ -62,11 +62,10 @@ describe Item do
   
   context 'with user defined keywords' do
     let (:item) do
-      pos.new_item('test', 5.50,
-        discount:[1, 1, 0], 
-        tax:20, 
-        tags:['Meat', 'Longlife'], 
-        price_include_vat:false)
+      pos.new_item('test', 5.50, discount:[1, 1, 0], 
+                                 tax:20, 
+                                 tags:['Meat', 'Longlife'], 
+                                 price_include_vat:false)
     end
     
     it 'holds user values' do
@@ -83,9 +82,7 @@ describe Item do
       expect(item.tags[-1]).to eql :hello_world
     end
     
-    it 'turns new price into a money object' do
-      item.price = 
-    end
+    it 'turns new price into a money object'
   end
 end
 

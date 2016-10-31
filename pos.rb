@@ -168,7 +168,10 @@ end
 #                                              - 1 - Buy x get y off  (y is an amount in pence)
 #   tax      - Must be a decimal representing a percentage e.g. 17, 17%, 11.5,etc
 #   tags     - Must be a string or array of strings
-class Item  
+class Item
+  attr_reader :name, :price, :discount, :tax, :tags, :price_include_vat
+  alias_method :price_include_vat?, :price_include_vat
+  
   def initialize(pos, name, price, discount, tax, tags, price_include_vat)
     @pos = pos
     @name = name
@@ -185,14 +188,26 @@ class Item
     
     validate()    
   end
-  # Validate values with setter
+  # Validate values with custom setters
   def price=(val)
     @price = val
-    validate()
+    check_price
   end
   def tax=(val)
-    @tax = tax
-    validate()
+    @tax = val
+    check_tax
+  end
+  def discount=(val)
+    @discount = val
+    check_discount
+  end
+  def tags=(val)
+    @tags = val
+    check_tags
+  end
+  def price_include_vat=(val)
+    @price_include_vat = val
+    check_vat_flag
   end
   ## Turns strings into symbols
   def tosymbol(value)
@@ -204,24 +219,20 @@ class Item
   end
   ## Validate the instance variables
   def validate
-    # Make tags an array if it's a string or symbol
-    if @tags.methods.include? :downcase
-      @tags = [tosymbol(@tags)]
-    end
-    # Make all tags symbols
-    @tags.map! {|tag| tosymbol(tag)}
-    # Turn the name to a symbol
+    check_name
+    check_price
+    check_tax
+    check_discount
+    check_tags
+    check_vat_flag
+  end
+  # This will turn the name into a symbol
+  def check_name
     @name = tosymbol(@name)
-    # Check the discount is a array [i,n,i]
-    if @discount && (@discount.length != 3 || 
-                    !@discount[0].is_a? Integer ||
-                    !@discount[1].is_a? Numeric ||
-                    ![0,1].include? @discount[2])
-      puts "#{@name}: Bad value for discount #{@discount}"
-      @discount = false
-    end
-    # Make price a money objects
-    if @price.is_a? numeric
+  end
+  # This will check the price and turn it into a money object
+  def check_price
+    if @price.is_a? Numeric
       # Money gem works in subunits, so change the price to pence
       @price = (@price * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]).to_i
       @price = Money.new(@price, @pos.ccy)
@@ -229,21 +240,42 @@ class Item
       puts "#{@name}: Bad value for discount #{@price}"
       @price = Money.new(0, @pos.ccy)
     end
-    # Make tax a float
+  end
+  # This will check the tax variable and turn it into a float
+  def check_tax
     flg = @tax == 0 ? true : @tax
     @tax = @tax.to_f || 0.0
-    if flg != true
+    if flg != true && @tax == 0
       puts "#{@name}: Bad value for tax #{flg}"
     end
-    # Check price_include_vat
+  end
+  # This will check that the discount is an array of numbers
+  def check_discount
+    if @discount && 
+       (@discount.length != 3 || 
+       (!@discount[0].is_a? Integer) || 
+       (!@discount[1].is_a? Numeric) || 
+       (![0,1].include? @discount[2]))
+      puts "#{@name}: Bad value for discount #{@discount}"
+      @discount = false
+    end
+  end
+  # This will make any tags symbols
+  def check_tags      
+    if @tags.is_a? Array
+      @tags.map! {|tag| tosymbol(tag)}
+    else
+      @tags = [tosymbol(@tags.to_s)]
+    end
+  end
+  # This will check the VAT flag is a bool
+  def check_vat_flag
     if ![true, false].include? @price_include_vat
       puts "#{@name}: Bad value for VAT flag #{@price_include_vat}"
       @price_include_vat = true
     end
   end
   
-  private :validate
-  attr_reader :name, :price
-  attr_accessor :discount, :tax, :tags, :price_include_vat
-  alias_method :price_include_vat?, :price_include_vat
+  private :validate, :check_name, :check_price, :check_discount
+  private :check_tax, :check_tags, :check_vat_flag 
 end
