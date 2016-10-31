@@ -111,8 +111,11 @@ spam.price = Money.new(155, 'eur')
 spam.price.format
 => "€1,55"
 
-spam.tags.push(:Pork)
-=> [:meat, :longlife, :Pork]
+spam.tags << "pork"
+=> [:meat, :longlife, :pork]
+
+spam.price_include_vat?
+=> false
 
 ```
 &nbsp;
@@ -174,7 +177,7 @@ This bill has already been submitted.
  => nil
 
 # You can see whether a bill has been submitted by checking its `submitted` property
-bill.submitted
+bill.submitted?
 => true
 
 # Or you can check the POS object to see if the bill is included in the bill list
