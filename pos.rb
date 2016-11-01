@@ -169,7 +169,7 @@ end
 #   tax      - Must be a decimal representing a percentage e.g. 17, 17%, 11.5,etc
 #   tags     - Must be a string or array of strings
 class Item
-  attr_reader :name, :price, :discount, :tax, :tags, :price_include_vat
+  attr_reader :name, :price, :tax, :discount, :tags, :price_include_vat
   alias_method :price_include_vat?, :price_include_vat
   
   def initialize(pos, name, price, discount, tax, tags, price_include_vat)
@@ -232,7 +232,11 @@ class Item
   end
   # This will check the price and turn it into a money object
   def check_price
-    if @price.is_a? Numeric
+    if @price.is_a? Money
+      if @price.currency.id != @pos.ccy.to_sym
+        @price = Money.new(@price.fractional, @pos.ccy)
+      end
+    elsif @price.is_a? Numeric
       # Money gem works in subunits, so change the price to pence
       @price = (@price * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]).to_i
       @price = Money.new(@price, @pos.ccy)
@@ -244,7 +248,7 @@ class Item
   # This will check the tax variable and turn it into a float
   def check_tax
     flg = @tax == 0 ? true : @tax
-    @tax = @tax.to_f || 0.0
+    @tax = @tax.to_s.to_f || 0.0
     if flg != true && @tax == 0
       puts "#{@name}: Bad value for tax #{flg}"
     end
