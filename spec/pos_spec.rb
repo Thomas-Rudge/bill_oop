@@ -1,4 +1,5 @@
-#
+# My first rspec script
+
 require 'spec_helper'
 require_relative '../pos'
 
@@ -187,14 +188,14 @@ end
 
 describe Bill do
   let (:pos) { POS.new }
+  let (:zero) { Money.new(0, pos.ccy) }
   subject { pos.new_bill }
 
   context 'instantiated' do
-    let (:starting_balance) { Money.new(0, pos.ccy) }
     it 'has nil balances' do
-      expect(subject.subtotal).to eql starting_balance
-      expect(subject.tax).to eql      starting_balance
-      expect(subject.discount).to eql starting_balance
+      expect(subject.subtotal).to eql zero
+      expect(subject.tax).to eql      zero
+      expect(subject.discount).to eql zero
     end
 
     it 'has the latest ref' do
@@ -218,15 +219,17 @@ describe Bill do
     let (:dscnt_item_off)  { pos.new_item('Off', 20, discount:[3, 2.5, 1]) }
     let (:dsc_tax_item)    { pos.new_item('Dsc_Tax', 37.3, tax:10, discount:[1, 1, 0]) }
 
-    context 'when a single item added' do
-      context 'add a basic item once' do
-        it 'will update the bills subtotal' do
+    context 'when a basic item added' do
+      context 'once' do
+        before do
           bill.add_item(basic_item)
+        end
+
+        it 'will update the bills subtotal' do
           expect(bill.subtotal).to eql basic_item.price
         end
 
         it 'will add a clone of the item to the items list' do
-          bill.add_item(basic_item)
           listed_item = bill.items[basic_item.name]
 
           expect(bill.items).to have_key(basic_item.name)
@@ -238,6 +241,249 @@ describe Bill do
                                                     tax:      basic_item.tax,
                                                     tags:     basic_item.tags)
         end
+
+        it 'will not update tax' do
+          expect(bill.tax).to eql zero
+        end
+
+        it 'will not update discount' do
+          expect(bill.discount).to eql zero
+        end
+
+        it 'will not submit the bill' do
+          expect(bill.submitted?).to be false
+        end
+      end
+
+      context 'multiple times' do
+        before do
+          bill.add_item(basic_item, qty:5)
+        end
+
+        it 'will update the bills subtotal' do
+          expect(bill.subtotal).to eql basic_item.price * 5
+        end
+
+        it 'will add a clone of the item to the items list' do
+          listed_item = bill.items[basic_item.name]
+
+          expect(listed_item[1]).to eql 5
+          expect(listed_item[0]).to have_attributes(name:     basic_item.name,
+                                                    price:    basic_item.price,
+                                                    discount: basic_item.discount,
+                                                    price_include_vat: basic_item.price_include_vat,
+                                                    tax:      basic_item.tax,
+                                                    tags:     basic_item.tags)
+        end
+
+        it 'will not update tax' do
+          expect(bill.tax).to eql zero
+        end
+
+        it 'will not update discount' do
+          expect(bill.discount).to eql zero
+        end
+
+        it 'will not submit the bill' do
+          expect(bill.submitted?).to be false
+        end
+      end
+    end
+
+    context 'when a tax item added' do
+      context 'once' do
+        before do
+          bill.add_item(tax_item)
+        end
+
+        it 'will update the bills subtotal' do
+          expect(bill.subtotal).to eql Money.new(4000, pos.ccy)
+        end
+
+        it 'will update the bills tax' do
+          expect(bill.tax).to eql Money.new(429, pos.ccy)
+        end
+
+        it 'will not update discount' do
+          expect(bill.discount).to eql zero
+        end
+
+        it 'will not submit the bill' do
+          expect(bill.submitted?).to be false
+        end
+      end
+
+      context 'multiple times' do
+        before do
+          bill.add_item(tax_item, qty:2)
+        end
+
+        it 'will update the bills subtotal' do
+          expect(bill.subtotal).to eql Money.new(8000, pos.ccy)
+        end
+
+        it 'will update the bills tax' do
+          expect(bill.tax).to eql Money.new(857, pos.ccy)
+        end
+
+        it 'will not update discount' do
+          expect(bill.discount).to eql zero
+        end
+
+        it 'will not submit the bill' do
+          expect(bill.submitted?).to be false
+        end
+      end
+    end
+
+    context 'when a discounted item is added' do
+      context 'and it is of type "QTY FREE"' do
+        context 'and discount was triggered' do
+          before do
+            bill.add_item(dscnt_item_free, qty:4)
+          end
+
+          it 'will update the bills subtotal' do
+            expect(bill.subtotal).to eql Money.new(3150, pos.ccy)
+          end
+
+          it 'will update the bills discount' do
+            expect(bill.discount).to eql Money.new(1050, pos.ccy)
+          end
+
+          it 'will not update the bills tax' do
+            expect(bill.tax).to eql zero
+          end
+
+          it 'will not submit the bill' do
+            expect(bill.submitted?).to be false
+          end
+        end
+
+        context 'and discount was not triggered' do
+          before do
+            bill.add_item(dscnt_item_free)
+          end
+
+          it 'will update the bills subtotal' do
+            expect(bill.subtotal).to eql Money.new(1050, pos.ccy)
+          end
+
+          it 'will update the bills discount' do
+            expect(bill.discount).to eql zero
+          end
+
+          it 'will not update the bills tax' do
+            expect(bill.tax).to eql zero
+          end
+        end
+      end
+
+      context 'and it is of type "AMOUNT OFF"' do
+        context 'and discount was triggered' do
+          before do
+            bill.add_item(dscnt_item_off, qty:7)
+          end
+
+          it 'will update the bills subtotal' do
+            expect(bill.subtotal).to eql Money.new(13500, pos.ccy)
+          end
+
+          it 'will update the bills discount' do
+            expect(bill.discount).to eql Money.new(500, pos.ccy)
+          end
+
+          it 'will not update the bills tax' do
+            expect(bill.tax).to eql zero
+          end
+
+          it 'will not submit the bill' do
+            expect(bill.submitted?).to be false
+          end
+        end
+
+        context 'and discount was not triggered' do
+          before do
+            bill.add_item(dscnt_item_off, qty:2)
+          end
+
+          it 'will update the bills subtotal' do
+            expect(bill.subtotal).to eql Money.new(4000, pos.ccy)
+          end
+
+          it 'will update the bills discount' do
+            expect(bill.discount).to eql zero
+          end
+
+          it 'will not update the bills tax' do
+            expect(bill.tax).to eql zero
+          end
+        end
+      end
+    end
+
+    context 'when a taxed discount item added' do
+      context 'and discount was triggered' do
+          before do
+            bill.add_item(dsc_tax_item, qty:3)
+          end
+
+          it 'will update the bills subtotal' do
+            expect(bill.subtotal).to eql Money.new(7460, pos.ccy)
+          end
+
+          it 'will update the bills discount' do
+            expect(bill.discount).to eql Money.new(3391, pos.ccy)
+          end
+
+          it 'will update the bills tax' do
+            expect(bill.tax).to eql Money.new(678, pos.ccy)
+          end
+
+          it 'will not submit the bill' do
+            expect(bill.submitted?).to be false
+          end
+        end
+
+        context 'and discount was not triggered' do
+          before do
+            bill.add_item(dsc_tax_item)
+          end
+
+          it 'will update the bills subtotal' do
+            expect(bill.subtotal).to eql Money.new(3730, pos.ccy)
+          end
+
+          it 'will update the bills tax' do
+            expect(bill.tax).to eql Money.new(339, pos.ccy)
+          end
+
+          it 'will update the bills discount' do
+            expect(bill.discount).to eql zero
+          end
+        end
+    end
+  end
+
+  describe '#reset' do
+    let (:bill) { pos.new_bill }
+    let (:item) { pos.new_item('item', 37.3, tax:10, discount:[1, 1, 0]) }
+
+    context 'when the bill has not been submitted do' do
+      before do
+        bill.add_item(item, qty:4)
+      end
+
+      it 'clears the item lis' do
+        bill.reset
+        expect(bill.items).to be_empty
+      end
+
+      it 'zeros out all balances' do
+        bill.reset
+        expect(bill.subtotal).to eql zero
+        expect(bill.tax).to eql zero
+        expect(bill.discount).to eql zero
       end
     end
   end

@@ -1,7 +1,7 @@
 require 'money' # Yes please
 
 ## POS
-# A self contained point of sale object. From the POS object you can create sales items 
+# A self contained point of sale object. From the POS object you can create sales items
 # and bills. Bills can then be submitted back to the POS object and recorded as sales
 #   ccy             - The currency of the POS instance.
 #   enforce_locales - Stops I18n locale not valid errors.
@@ -37,12 +37,12 @@ class POS
       @bill_list[bref] = bill
     end
   end
-  
+
   attr_reader :bill_list, :ref, :system_total, :ccy
 end
 
 ## BILL
-# Bills are created through the pos object. Items can be added 
+# Bills are created through the pos object. Items can be added
 # to the bill, and the bill can be submitted to the pos object.
 #   pos       - The POS object that spawned the bill
 #   bill_ref  - A unique bill ID issued by the POS object
@@ -66,7 +66,7 @@ class Bill
   ## Adds an item to the bill.
   ## If already present increments quantity by 1
   def add_item(item, qty:1)
-    # Clone the item so that if the base item changes later, it doesn't  imbalance 
+    # Clone the item so that if the base item changes later, it doesn't  imbalance
     # the entire system (i.e. price changes wont effect bills already submitted)
     unless @submitted
       item = item.clone
@@ -96,50 +96,42 @@ class Bill
     # Iterate over the bills items, and process each one
     @items.each do |key, item|
       qty, item = item[1], item[0]
-      price = item.price
-      tax = item.tax / 100.00
-      # dsc_quantity x dsc_amount = total_discount
-      dsc_quantity = 0
-      dsc_amount = Money.new(0, @pos.ccy)
+      price = item.price.cents
+      tax = item.tax
       # If price contains vat, remove the vat
       if item.price_include_vat
-        price = price / (1 + tax)
+        price = (price*100) / (tax+100)
       end
       # Check if a discount is to be applied
-      dsc_amount, dsc_quantity = discounter(item.discount, qty, price)
+      dscnt = discounter(item.discount, qty, price)
       # Total everything up
-      dscnt = dsc_amount * dsc_quantity
-      @discount += dscnt
-      #
       price = (price * qty) - dscnt
-      tax = price * tax
+      tax = (price / BigDecimal.new(100, 2) * tax)
       #
-      @tax += tax
-      @subtotal += price + tax
+      @discount += Money.new(dscnt, @pos.ccy)
+      @tax += Money.new(tax, @pos.ccy)
+      @subtotal += Money.new(price + tax, @pos.ccy)
     end
   end
-  
+
   ## This calculates the discount values
   def discounter(discount, quantity, i_price)
     # Discount is always applied before tax
-    if !discount
-      d_amount = Money.new(0, @pos.ccy)
-      d_qty = 0
-    elsif discount[2] == 0 && (discount[0] + discount[1]) <= quantity
+    d_amount = d_qty = 0
+    if discount && discount[2] == 0 && (discount[0] + discount[1]) <= quantity
       # Quantity discount
       # tot is the total items used in a single discount
       tot = discount[0] + discount[1]
       d_qty = (quantity / tot).floor
       d_amount = i_price
-    elsif discount[0] <= quantity
+    elsif discount && discount[2] == 1 && discount[0] <= quantity
       # Money discount
       d_qty = (quantity / discount[0]).floor
       d_amount = discount[1] * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]
-      d_amount = Money.new(d_amount, @pos.ccy)
     end
-    return d_amount, d_qty
+    return d_amount * d_qty
   end
-  
+
   ## This submits the bill to the POS object, and closes the bill
   def submit
     unless @submitted
@@ -150,7 +142,7 @@ class Bill
       puts "This bill has already been submitted."
     end
   end
-  
+
   private :discounter
   attr_reader :items, :bill_ref, :subtotal, :submitted, :tax, :discount
   alias_method :submitted?, :submitted
@@ -171,7 +163,7 @@ end
 class Item
   attr_reader :name, :price, :tax, :discount, :tags, :price_include_vat
   alias_method :price_include_vat?, :price_include_vat
-  
+
   def initialize(pos, name, price, discount, tax, tags, price_include_vat)
     @pos = pos
     @name = name
@@ -180,13 +172,13 @@ class Item
     @discount = discount
     @tags = tags
     @price_include_vat = price_include_vat
-    
+
     item = self
     @tags.define_singleton_method(:<<) do |val|
       push(item.tosymbol(val))
     end
-    
-    validate()    
+
+    validate()
   end
   # Validate values with custom setters
   def price=(val)
@@ -214,7 +206,7 @@ class Item
     value = value.to_s
     value = value.gsub!(/\s+/,'_') || value
     value = value.downcase! || value
-    
+
     return value.to_sym
   end
   ## Validate the instance variables
@@ -238,6 +230,7 @@ class Item
       end
     elsif @price.is_a? Numeric
       # Money gem works in subunits, so change the price to pence
+      @price = BigDecimal.new(@price.to_s)
       @price = (@price * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]).to_i
       @price = Money.new(@price, @pos.ccy)
     else
@@ -255,17 +248,17 @@ class Item
   end
   # This will check that the discount is an array of numbers
   def check_discount
-    if @discount && 
-       (@discount.length != 3 || 
-       (!@discount[0].is_a? Integer) || 
-       (!@discount[1].is_a? Numeric) || 
+    if @discount &&
+       (@discount.length != 3 ||
+       (!@discount[0].is_a? Integer) ||
+       (!@discount[1].is_a? Numeric) ||
        (![0,1].include? @discount[2]))
       puts "#{@name}: Bad value for discount #{@discount}"
       @discount = false
     end
   end
   # This will make any tags symbols
-  def check_tags      
+  def check_tags
     if @tags.is_a? Array
       @tags.map! {|tag| tosymbol(tag)}
     else
@@ -279,7 +272,7 @@ class Item
       @price_include_vat = true
     end
   end
-  
+
   private :validate, :check_name, :check_price, :check_discount
-  private :check_tax, :check_tags, :check_vat_flag 
+  private :check_tax, :check_tags, :check_vat_flag
 end
