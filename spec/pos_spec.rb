@@ -463,6 +463,70 @@ describe Bill do
           end
         end
     end
+    
+    context 'when multiple items added' do
+      before do
+        bill.add_item(basic_item, qty:2)
+        bill.add_item(tax_item)
+        bill.add_item(dsc_tax_item, qty:5)
+      end
+        
+      it 'will update the bills subtotal' do
+        expect(bill.subtotal).to eql Money.new(16290, pos.ccy)
+      end
+
+      it 'will update the bills tax' do
+        expect(bill.tax).to eql Money.new(1446, pos.ccy)
+      end
+
+      it 'will update the bills discount' do
+        expect(bill.discount).to eql Money.new(6782, pos.ccy)
+      end
+        
+      it 'will have all items in the bills item list' do
+        expect(bill.items.keys).to contain_exactly(:item, :taxable, :dsc_tax)
+        expect(bill.items[:item][1]).to eql     2
+        expect(bill.items[:taxable][1]).to eql  1
+        expect(bill.items[:dsc_tax][1]).to eql 5
+      end
+        
+      it 'will not submit the bill' do
+        expect(bill.submitted?).to be false
+      end
+    end
+    
+    context 'when a bill is submitted' do
+      before do
+        bill.add_item(basic_item, qty:2)
+        bill.add_item(tax_item)
+        bill.add_item(dsc_tax_item, qty:5)
+        bill.submit
+      end
+      
+      it 'will change the bills submit status to true' do
+        expect(bill.submitted).to be true
+      end
+      
+      it 'will not accept any further items' do
+        bill.add_item(basic_item)
+        expect(bill.items[:item][1]).to eql 2
+        expect(bill.subtotal).to eql Money.new(16290, pos.ccy)
+      end
+      
+      it 'will update the POS objects system total' do
+        expect(pos.system_total).to eql Money.new(16290, pos.ccy)
+      end
+      
+      it 'will add the bill to the POS objects bill list' do
+        expect(pos.bill_list.keys).to include(bill.bill_ref)
+        expect(pos.bill_list[bill.bill_ref]).to have_attributes(subtotal: Money.new(16290,pos.ccy),
+                                                                discount: Money.new(6782, pos.ccy),
+                                                                tax:      Money.new(1446, pos.ccy),
+                                                                bill_ref: 1,
+                                                                submitted: true)
+        expect(pos.bill_list[bill.bill_ref].items.keys).to contain_exactly(:item, :taxable, :dsc_tax)
+      end
+    end
   end
 
   describe '#reset' do
