@@ -12,7 +12,7 @@ require 'money' # Yes please
 #   system_total    - The gross amount of cash in the POS (sum of all submitted bills)
 class POS
   def initialize(ccy='gbp', enforce_locales:false, ref_start:1)
-    @ccy = ccy.downcase! || ccy
+    @ccy = ccy.downcase
     @ref = ref_start-1
     I18n.enforce_available_locales = enforce_locales
     @bill_list = {}
@@ -205,7 +205,7 @@ class Item
   def tosymbol(value)
     value = value.to_s
     value = value.gsub!(/\s+/,'_') || value
-    value = value.downcase! || value
+    value = value.downcase
 
     return value.to_sym
   end
