@@ -175,12 +175,12 @@ class Item
   alias_method :price_include_vat?, :price_include_vat
 
   def initialize(pos, name, price, discount, tax, tags, price_include_vat)
-    @pos = pos
-    @name = name
-    @price = price
-    @tax = tax
+    @pos      = pos
+    @name     = name
+    @price    = price
+    @tax      = tax
     @discount = discount
-    @tags = tags
+    @tags     = tags
     @price_include_vat = price_include_vat
 
     item = self
@@ -195,18 +195,22 @@ class Item
     @price = val
     check_price
   end
+
   def tax=(val)
     @tax = val
     check_tax
   end
+
   def discount=(val)
     @discount = val
     check_discount
   end
+
   def tags=(val)
     @tags = val
     check_tags
   end
+
   def price_include_vat=(val)
     @price_include_vat = val
     check_vat_flag
@@ -219,6 +223,8 @@ class Item
 
     return value.to_sym
   end
+
+  private
   ## Validate the instance variables
   def validate
     check_name
@@ -250,7 +256,7 @@ class Item
   end
   # This will check the tax variable and turn it into a float
   def check_tax
-    flg = @tax == 0 ? true : @tax
+    flg  = @tax == 0 ? true : @tax
     @tax = @tax.to_s.to_f || 0.0
     if flg != true && @tax == 0
       puts "#{@name}: Bad value for tax #{flg}"
@@ -282,7 +288,4 @@ class Item
       @price_include_vat = true
     end
   end
-
-  private :validate, :check_name, :check_price, :check_discount
-  private :check_tax, :check_tags, :check_vat_flag
 end
