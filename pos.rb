@@ -11,11 +11,16 @@ require 'money' # Yes please
 #                     ## NB: Format {bill_ref: bill_object}
 #   system_total    - The gross amount of cash in the POS (sum of all submitted bills)
 class POS
+
+  attr_reader :bill_list, :ref, :system_total, :ccy
+
   def initialize(ccy='gbp', enforce_locales:false, ref_start:1)
     @ccy = ccy.downcase
     @ref = ref_start-1
-    I18n.enforce_available_locales = enforce_locales
     @bill_list = {}
+
+    I18n.enforce_available_locales = enforce_locales
+
     @system_total = Money.new(0, @ccy)
   end
   ## This creates a new bill within the system
@@ -30,15 +35,14 @@ class POS
   ## Submits the bill to the systems bill list. Should be called from bill
   def submit(bill)
     @system_total += bill.subtotal
-    bref = bill.bill_ref
+    bref           = bill.bill_ref
+
     if @bill_list.keys.include? bref
       puts "Bill '#{bref}' has already been submitted!"
     else
       @bill_list[bref] = bill
     end
   end
-
-  attr_reader :bill_list, :ref, :system_total, :ccy
 end
 
 ## BILL
@@ -52,15 +56,18 @@ end
 #               ## NB: Format {item_name :[item_object, quantity]}
 #   submitted - A flag denoting whether the bill has been passed back to the POS object
 class Bill
+
+  attr_reader :items, :bill_ref, :subtotal, :submitted, :tax, :discount
+  alias_method :submitted?, :submitted
   ## pos is the parent system
   ## bill_ref is a system unique id
   def initialize(pos, bill_ref)
-    @pos = pos
-    @subtotal = Money.new(0, pos.ccy)
-    @tax = Money.new(0, pos.ccy)
-    @discount = Money.new(0, pos.ccy)
-    @bill_ref = bill_ref
-    @items = {}
+    @pos       = pos
+    @subtotal  = Money.new(0, pos.ccy)
+    @tax       = Money.new(0, pos.ccy)
+    @discount  = Money.new(0, pos.ccy)
+    @bill_ref  = bill_ref
+    @items     = {}
     @submitted = false
   end
   ## Adds an item to the bill.
@@ -70,6 +77,7 @@ class Bill
     # the entire system (i.e. price changes wont effect bills already submitted)
     unless @submitted
       item = item.clone
+
       qty.times do
         if @items.keys.include? item.name
           @items[item.name][1] += 1
@@ -77,6 +85,7 @@ class Bill
           @items[item.name] = [item, 1]
         end
       end
+
       retotal()
     end
   end
@@ -91,13 +100,13 @@ class Bill
   def retotal
     # Reset totals
     @subtotal -= @subtotal
-    @tax -= @tax
+    @tax      -= @tax
     @discount -= @discount
     # Iterate over the bills items, and process each one
     @items.each do |key, item|
       qty, item = item[1], item[0]
-      price = item.price.cents
-      tax = item.tax
+      price     = item.price.cents
+      tax       = item.tax
       # If price contains vat, remove the vat
       if item.price_include_vat
         price = (price*100) / (tax+100)
@@ -106,10 +115,10 @@ class Bill
       dscnt = discounter(item.discount, qty, price)
       # Total everything up
       price = (price * qty) - dscnt
-      tax = (price / BigDecimal.new(100, 2) * tax)
-      #
+      tax   = (price / BigDecimal.new(100, 2) * tax)
+
       @discount += Money.new(dscnt, @pos.ccy)
-      @tax += Money.new(tax, @pos.ccy)
+      @tax      += Money.new(tax, @pos.ccy)
       @subtotal += Money.new(price + tax, @pos.ccy)
     end
   end
@@ -118,17 +127,19 @@ class Bill
   def discounter(discount, quantity, i_price)
     # Discount is always applied before tax
     d_amount = d_qty = 0
+
     if discount && discount[2] == 0 && (discount[0] + discount[1]) <= quantity
       # Quantity discount
       # tot is the total items used in a single discount
-      tot = discount[0] + discount[1]
-      d_qty = (quantity / tot).floor
+      tot      = discount[0] + discount[1]
+      d_qty    = (quantity / tot).floor
       d_amount = i_price
     elsif discount && discount[2] == 1 && discount[0] <= quantity
       # Money discount
-      d_qty = (quantity / discount[0]).floor
+      d_qty    = (quantity / discount[0]).floor
       d_amount = discount[1] * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]
     end
+
     return d_amount * d_qty
   end
 
@@ -144,8 +155,7 @@ class Bill
   end
 
   private :discounter
-  attr_reader :items, :bill_ref, :subtotal, :submitted, :tax, :discount
-  alias_method :submitted?, :submitted
+
 end
 
 ## ITEM
