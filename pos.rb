@@ -25,8 +25,7 @@ class POS
   end
   ## This creates a new bill within the system
   def new_bill
-    @ref += 1
-    return Bill.new(self, @ref)
+    return Bill.new(self, @ref += 1)
   end
   ## This creates a new item within the system, which will be available to bills
   def new_item(name, price, discount:false, tax:0, tags:[], price_include_vat:true)
