@@ -12,6 +12,13 @@ require 'money' # Yes please
 #   system_total    - The gross amount of cash in the POS (sum of all submitted bills)
 class POS
 
+  class << self
+    def number_of_instances
+      ObjectSpace.garbage_collect
+      ObjectSpace.each_object.count { |o| o.is_a? self }
+    end
+  end
+
   attr_reader :bill_list, :ref, :system_total, :ccy
 
   def initialize(ccy='gbp', enforce_locales:false, ref_start:1)
