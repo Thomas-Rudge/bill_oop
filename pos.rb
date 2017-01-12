@@ -15,7 +15,7 @@ class POS
   class << self
     def number_of_instances
       ObjectSpace.garbage_collect
-      ObjectSpace.each_object.count { |o| o.is_a? self }
+      ObjectSpace.each_object(self).count
     end
   end
 
