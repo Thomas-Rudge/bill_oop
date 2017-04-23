@@ -10,7 +10,7 @@ A simple POS system written in the Ruby scripting language using OOP.
 &nbsp;
 ####Quick example
 ```ruby
-sys = POS.new
+system = POS.new
 
 # Create an item for use in bills
 spam = system.new_item('Spam', 1.45)
@@ -35,32 +35,32 @@ The second, `enforce_locales`, is passed to I18n enforce_available_locales; it i
 Lastly `ref_start` dictates what the reference of the first bill should be, with all proceeding bills incremented by 1. By default references start from 1.
 ```ruby
 
-sys = POS.new('eur', enforce_locales:true, ref_start:50)
+system = POS.new('eur', enforce_locales:true, ref_start:50)
 
 ```
 The POS object's properties can be retrieved like this...
 ```ruby
 ## sub_total is the gross amount of cash in the system (aggregate of all submitted bills).
 # This returns a money object
-sys.system_total
+system.system_total
 => #<Money fractional:558 currency:EUR> 
 
 # Use format to make it more readable
-sys.system_total.format
+system.system_total.format
 => "€5.58" 
 
 # Last ref issued by the system
-sys.ref
+system.ref
 =>50
-# If the POS hasn't issued any bills yet, then sys.ref will return ref_start-1
+# If the POS hasn't issued any bills yet, then system.ref will return ref_start-1
 
 # The systems currency
-sys.ccy
+system.ccy
 => "eur"
 
 # A hash of bills that have been submitted so far.
 # The key is the bill ref, and the value is the bill object.
-sys.bill_list
+system.bill_list
 {50=>#<Bill:0x00000001ff56a8 @pos=#<POS:0x000000021bdc10 @ccy="eur", @ref=50, @bill_list={...}, 
 @system_total=#<Money fractional:558 currency:EUR>>, @subtotal=#<Money fractional:558 currency:EUR>, 
 @tax=#<Money fractional:93 currency:EUR>, @discount=#<Money fractional:310 currency:EUR>, @bill_ref=50, 
@@ -70,7 +70,7 @@ sys.bill_list
 
 
 # You can get a specific bill object and its properties using the bill's reference number.
-sys.bill_list[50].discount.format
+system.bill_list[50].discount.format
 => "€1,55"
 ```
 
@@ -90,7 +90,7 @@ Keyword arguments are as follows:
 
 ```ruby
 # Create a new item object called spam
-spam = sys.new_item('Spam', 1.45, 
+spam = system.new_item('Spam', 1.45, 
   discount:[1, 1, 0], 
   tax:20, 
   tags:['Meat', 'Longlife'], 
@@ -123,7 +123,7 @@ spam.price_include_vat?
 A bill is created through the POS object using the `new_bill` method. Items are added to bills using the bill's `add_item` method.
 
 ```ruby
-bill = sys.new_bill
+bill = system.new_bill
 => #<Bill:0x000000020b5b10 @pos=#<POS:0x000000021bdc10 @ccy="eur", @ref=50, @bill_list={}, 
 @system_total=#<Money fractional:0 currency:EUR>>, @subtotal=#<Money fractional:0 currency:EUR>, 
 @tax=#<Money fractional:0 currency:EUR>, @discount=#<Money fractional:0 currency:EUR>, @bill_ref=50, 
@@ -181,7 +181,7 @@ bill.submitted?
 => true
 
 # Or you can check the POS object to see if the bill is included in the bill list
-sys.bill_list.include? 50
+system.bill_list.include? 50
 => true
 
 ```

@@ -166,15 +166,15 @@ end
 
 ## ITEM
 # Items are created through the POS object, and added to bill objects
-#   pos      - The POS object that spawned the item.
+#   ccy      - The system currency.
 #   name     - Must be a string
 #   price    - Must be a floatable value
 #   discount - Must be nil or an array with three values
 #                - The first value  (x) is the quantity required to trigger the discount
 #                - The second value (y) is the discount to be applied
 #                - The third value is either - 0 - Buy x get y free (y is a quantity)
-#                                              - 1 - Buy x get y off  (y is an amount in pence)
-#   tax      - Must be a decimal representing a percentage e.g. 17, 17%, 11.5,etc
+#                                            - 1 - Buy x get y off  (y is an amount in pence)
+#   tax      - Must be a decimal representing e.g. 17, 11.5,etc
 #   tags     - Must be a string or array of strings
 class Item
   attr_reader :name, :price, :tax, :discount, :tags, :price_include_vat
@@ -264,7 +264,7 @@ class Item
   def check_tax
     flg  = @tax == 0 ? true : @tax
     @tax = @tax.to_s.to_f || 0.0
-    if flg != true && @tax == 0
+    if !flg && @tax == 0
       puts "#{@name}: Bad value for tax #{flg}"
     end
   end
