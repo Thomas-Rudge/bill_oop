@@ -36,7 +36,7 @@ class POS
   end
   ## This creates a new item within the system, which will be available to bills
   def new_item(name, price, discount:false, tax:0, tags:[], price_include_vat:true)
-    return Item.new(self, name, price, discount, tax, tags, price_include_vat)
+    return Item.new(@ccy, name, price, discount, tax, tags, price_include_vat)
   end
   ## Submits the bill to the systems bill list. Should be called from bill
   def submit(bill)
@@ -97,7 +97,7 @@ class Bill
   end
   ## Clears the content of the bill
   def reset
-    unless submitted
+    unless @submitted
       @items.clear
       retotal()
     end
@@ -180,8 +180,8 @@ class Item
   attr_reader :name, :price, :tax, :discount, :tags, :price_include_vat
   alias_method :price_include_vat?, :price_include_vat
 
-  def initialize(pos, name, price, discount, tax, tags, price_include_vat)
-    @pos      = pos
+  def initialize(ccy, name, price, discount, tax, tags, price_include_vat)
+    @ccy      = ccy.to_sym
     @name     = name
     @price    = price
     @tax      = tax
@@ -247,17 +247,17 @@ class Item
   # This will check the price and turn it into a money object
   def check_price
     if @price.is_a? Money
-      if @price.currency.id != @pos.ccy.to_sym
-        @price = Money.new(@price.fractional, @pos.ccy)
+      if @price.currency.id != @ccy
+        @price = Money.new(@price.fractional, @ccy)
       end
     elsif @price.is_a? Numeric
       # Money gem works in subunits, so change the price to pence
       @price = BigDecimal.new(@price.to_s)
-      @price = (@price * Money::Currency.table[@pos.ccy.to_sym][:subunit_to_unit]).to_i
-      @price = Money.new(@price, @pos.ccy)
+      @price = (@price * Money::Currency.table[@ccy][:subunit_to_unit]).to_i
+      @price = Money.new(@price, @ccy)
     else
       puts "#{@name}: Bad value for discount #{@price}"
-      @price = Money.new(0, @pos.ccy)
+      @price = Money.new(0, @ccy)
     end
   end
   # This will check the tax variable and turn it into a float
